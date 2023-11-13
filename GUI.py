@@ -3,6 +3,7 @@ from tkinter.font import Font
 from tkinter import *
 from tkinter import filedialog as fd
 from video_analyzer import analyzer
+from microphone import microphone
 import subprocess
 import os
 import glob
@@ -14,16 +15,18 @@ def deleteFrames():
     repo = [
         glob.glob('frames/normal/*'),
         glob.glob('frames/gray/*'),
-        glob.glob('frames/reversed/*')
+        glob.glob('frames/reversed/*'),
+        glob.glob('audio/*')
     ]
-    
+    for file in repo[-1]:
+        os.remove(file)
     for folder in repo:
         for file in folder:
             os.remove(file)
     messagebox.showinfo(
             icon = "info", 
-            title='Notification', 
-            message='Deleted all frames')
+            title = 'Notification', 
+            message = 'Deleted all frames')
 def addThenPlaceBtn(GUI, xx, yy, context, back, fore, cmd, txt_font, varText = None):
     global margin
     retBtn = Button(width = GUI.width // 70, height = GUI.height // 1000, master = GUI.window, text = context, bg = back, fg = fore, font = txt_font, command = cmd)
@@ -52,8 +55,6 @@ def openFile():
         title='Notification', 
         message='Cannot open selected file!')
 
-def voiceInput():
-    print("test")
 def openFramesFolder():
     subprocess.Popen('explorer "frames"')
 
@@ -66,6 +67,10 @@ class GUI:
         self.height = height
         self.caption = caption
         self.option = ""
+        self.stop = False
+        self.window.bind("<KeyPress-q>", self.quitting)
+    def quitting(self, *e):
+        self.stop = True
     def drawMainFrame(self):
         SCREEN_WIDTH = self.window.winfo_screenwidth()
         SCREEN_HEIGHT = self.window.winfo_screenheight()
@@ -82,10 +87,10 @@ class GUI:
             "Open file", "#F48749", "#FDF0E8", openFile, self.txt_font)
         addThenPlaceBtn(
             self, self.startx, self.starty + margin,
-            "Start cut frame", "#151C47", "#C6CCDA", self.cutFrame, self.txt_font)
+            "Cut frame", "#151C47", "#C6CCDA", self.cutFrame, self.txt_font)
         addThenPlaceBtn(
             self, self.startx, self.starty + margin,
-            "Voice input", "#E47676", "#F7D9D9", voiceInput, self.txt_font)
+            "Voice input", "#E47676", "#F7D9D9", self.voiceInput, self.txt_font)
         addThenPlaceBtn(
             self, self.startx, self.starty + margin,
             "Frames folder", "#A25A30", "#FDF0E8", openFramesFolder, self.txt_font)
@@ -95,6 +100,34 @@ class GUI:
         
     def changeOption(self):
         self.option = self.spbSelectMode.get()
+    def voiceInput(self):
+        dictCF = ["cắt", "các", "cách"]
+        self.voiceInput = microphone()
+        self.voiceInput.hear()
+        print(self.voiceInput.textHeard)
+        if "xóa" in self.voiceInput.textHeard:
+            self.voiceInput.speak("tiến hành xóa ảnh")
+            deleteFrames()
+            return
+        if "mở file" in self.voiceInput.textHeard:
+            self.voiceInput.speak("mở file thành công")
+            openFile()
+        if len(filename) == 0:
+            self.voiceInput.speak("mở file không thành công")
+            return
+        for words in dictCF:
+            if words in self.voiceInput.textHeard:
+                self.voiceInput.speak("tiến hành cắt ảnh")
+                if "xám" in self.voiceInput.textHeard:
+                    self.varOptions = "Grayscale"
+                elif "ngược" in self.voiceInput.textHeard:
+                    self.varOptions = "Reversed" 
+                else:
+                    self.varOptions = "Normal" 
+        self.option = self.varOptions
+        self.window.update()
+        self.cutFrame()
+        return
     def cutFrame(self):
         global filename
         if not filename:
@@ -104,12 +137,13 @@ class GUI:
                 message='You haven\'t selected a file yet!')
             return
         Analyzer = analyzer(filename, self.option)
+        self.stop = False
         if self.option == 'Normal':
-            Analyzer.normal()
+            Analyzer.normal(self)
         if self.option == 'Grayscale':
-            Analyzer.grayscale()
+            Analyzer.grayscale(self)
         if self.option == 'Reversed':
-            Analyzer.reverse()
+            Analyzer.reverse(self)
     
     def drawComponent(self):
         options = (
@@ -117,6 +151,7 @@ class GUI:
             "Grayscale",
             "Reversed"
         )
+        self.varOptions = StringVar(master = self.window)
         self.spbSelectMode = Spinbox(
             master = self.window, 
             from_ = 0, 
@@ -124,7 +159,8 @@ class GUI:
             width = self.width // 70, 
             font = self.txt_font,
             values = options,
-            command = self.changeOption
+            command = self.changeOption,
+            textvariable = self.varOptions
         )
         self.changeOption()
         self.spbSelectMode.place(
