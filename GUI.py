@@ -1,9 +1,9 @@
-from tkinter import messagebox
+from tkinter import colorchooser, messagebox
 from tkinter.font import Font
 from tkinter import *
 from tkinter import filedialog as fd
 from video_analyzer import analyzer
-from microphone import microphone
+from microphone import microphone as qlMic
 import subprocess
 import os
 import glob
@@ -16,6 +16,7 @@ def deleteFrames():
         glob.glob('frames/normal/*'),
         glob.glob('frames/gray/*'),
         glob.glob('frames/reversed/*'),
+        glob.glob('frames/filter/*'),
         glob.glob('audio/*')
     ]
     for file in repo[-1]:
@@ -97,12 +98,15 @@ class GUI:
         addThenPlaceBtn(
             self, self.startx, self.starty + margin,
             "Delete frames", "#666666", "#E8E8E8", deleteFrames, self.txt_font)
+        addThenPlaceBtn(
+            self, self.startx, self.starty + margin,
+            "Pick color", "#3C238C", "#B4FFFF", self.pickcolor, self.txt_font)
         
     def changeOption(self):
         self.option = self.spbSelectMode.get()
     def voiceInput(self):
         dictCF = ["cắt", "các", "cách"]
-        self.voiceInput = microphone()
+        self.voiceInput = qlMic()
         self.voiceInput.hear()
         print(self.voiceInput.textHeard)
         if "xóa" in self.voiceInput.textHeard:
@@ -122,12 +126,18 @@ class GUI:
                     self.varOptions = "Grayscale"
                 elif "ngược" in self.voiceInput.textHeard:
                     self.varOptions = "Reversed" 
+                elif "lọc" in self.voiceInput.textHeard:
+                    self.varOptions = "Filter color" 
                 else:
                     self.varOptions = "Normal" 
         self.option = self.varOptions
         self.window.update()
         self.cutFrame()
         return
+    def pickcolor(self):
+        self.lower_color = colorchooser.askcolor(title ="Choose lower color")[1]
+        self.upper_color = colorchooser.askcolor(title ="Choose upper color")[1]
+        print(self.lower_color, self.upper_color)
     def cutFrame(self):
         global filename
         if not filename:
@@ -144,18 +154,20 @@ class GUI:
             Analyzer.grayscale(self)
         if self.option == 'Reversed':
             Analyzer.reverse(self)
-    
+        if self.option == 'Filter color':
+            Analyzer.colorfilter(self)
     def drawComponent(self):
         options = (
             "Normal",
             "Grayscale",
-            "Reversed"
+            "Reversed",
+            "Filter color"
         )
         self.varOptions = StringVar(master = self.window)
         self.spbSelectMode = Spinbox(
             master = self.window, 
             from_ = 0, 
-            to = 2, 
+            to = 3, 
             width = self.width // 70, 
             font = self.txt_font,
             values = options,
